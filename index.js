@@ -5,35 +5,18 @@ var db = require('./db');
 var { UNIQUE_VIOLATION } = require('pg-error-constants');
 
 var request = require('request');
-var { URL } = require('url');
-
-function validateURL (data) {
-	var url;
-	try {
-		url = new URL(data);
-		url = url.href;
-	} catch (error) {
-		if (error.code !== 'ERR_INVALID_URL') {
-			return res.status(500).send({err: error.message});
-		}
-
-		// if url is not missing protocol but still is invalid
-		if (data.indexOf('http://') !== -1) {
-			return res.status(400).send({err: error.message});	
-		}
-
-		url = 'http://' + data;
-	}
-
-	return url;
-};
+var helper = require('./lib/url-validator.js');
 
 function addJob (req, res) {
 	if (!req.body.url) {
 		return res.status(400).send();
 	}
 
-	var url = validateURL(req.body.url);
+	var validated = helper.validateURL(req.body.url);
+	if (validated.err) {
+		return res.status(500).send({err: validated.err.message});
+	}
+
 	db.query('INSERT INTO jobs (url) VALUES ($1) RETURNING id', [req.body.url], function(err, result) {
 		if (!err) {
 			if (!result || !result.rows || !result.rows.length) {
@@ -41,18 +24,16 @@ function addJob (req, res) {
 			}
 
 			var id = result.rows[0].id;
-			res.status(201).send({id: id});
-
-			populateHTML(id, url);
-			return;
+			return res.status(201).send({id: id});
 		}
 
 		if (err.code !== UNIQUE_VIOLATION) {
-			return res.status(500).send({error: err.detail});
+			var errMsg = err.detail || err.message;
+			return res.status(500).send({error: errMsg});
 		}
 
 		// if an entry with that url already exists, send back id
-		db.query('SELECT id FROM jobs WHERE url = $1', [url], function(err, result) {
+		db.query('SELECT id FROM jobs WHERE url = $1', [req.body.url], function(err, result) {
 			if (err) {
 				return res.status(500).send({err: err.detail});
 			}
@@ -63,30 +44,6 @@ function addJob (req, res) {
 
 			res.status(200).send({id: result.rows[0].id});
 		});
-	});
-};
-
-function populateHTML (id, url) {
-	request({
-		method: 'GET',
-		url: url,
-	}, function(err, response, body) {
-		if (err) {
-			console.trace(err);
-			return;
-		}
-
-		if (response.statusCode === 200) {
-			// encode html body to base64 string
-			var buffer = new Buffer(body);
-			var encoded = buffer.toString('base64');
-
-			db.query('UPDATE jobs SET html = $1, complete = $2 WHERE id = $3', [encoded, true, id], function(err, result) {
-				if (err) {
-					console.trace(err);
-				}
-			});
-		}
 	});
 };
 
