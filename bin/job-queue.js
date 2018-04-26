@@ -12,9 +12,9 @@ program
 	.option('-l, --limit <rows>', 'number of rows to be processed in a batch')
 	.parse(process.argv);
 
-function getJobs(limit, offset, cb) {
+function getJobs(limit, cb) {
 	// select one more job than limit to see if there are more rows
-	db.query('SELECT * FROM jobs WHERE complete = $1 LIMIT $2 OFFSET $3', [false, limit + 1, offset], function(err, result) {
+	db.query('SELECT * FROM jobs WHERE complete = $1 LIMIT $2', [false, limit + 1], function(err, result) {
 		if (err) {
 			return cb(err);
 		}
@@ -35,8 +35,8 @@ function getJobs(limit, offset, cb) {
 	});
 };
 
-function processNewJobs(limit, offset, cb) {
-	getJobs(limit, offset, function(err, rows, moreJobs) {
+function processNewJobs(limit, cb) {
+	getJobs(limit, function(err, rows, moreJobs) {
 		if (err) {
 			return cb(err);
 		}
@@ -65,7 +65,7 @@ function processNewJobs(limit, offset, cb) {
 				return cb();
 			}
 
-			processNewJobs(limit, offset + limit, cb);
+			processNewJobs(limit, cb);
 		});
 	});
 };
@@ -103,13 +103,13 @@ function populateHTML (id, url, cb) {
 var main = function () {
 	// set defaults if program run without options
 	var interval = program.interval || 1; // minutes
-	var limit = program.limit || 10;
+	var limit = parseInt(program.limit) || 10;
 
 	console.log('Checking job queue every '.cyan + interval + ' minute'.cyan);
 	console.log('Each batch size is '.magenta + limit + ' rows'.magenta);
 
 	setInterval(function() {
-		processNewJobs(limit, 0, function(err) {
+		processNewJobs(limit, function(err) {
 			if (err) {
 				console.log('Error: '.red, err.message.red);
 				process.exit(1);
