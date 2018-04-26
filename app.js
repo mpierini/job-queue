@@ -8,5 +8,5 @@ app.use(bodyParser.urlencoded({extended: true}))
 app.use(require('./index.js'));
 
 app.listen(process.env.PORT || 5000, function () {
-	console.log('Starting job queue')
+	console.log('Starting job queue API');
 });
