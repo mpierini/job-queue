@@ -27,13 +27,15 @@ Check job status:
 `curl -XGET localhost:5000/job/1`
 
 GET Response:
-`{
+```
+{
 	id: 1,
 	url: "http://www.google.com"
 	complete: true
 	html: "<!doctype html><html xml…;</script></body></html>"
-}`
+}
+```
 
-Run the bin script that populates the html column :
+Run the bin script that populates the html column:
 `job-queue`
 Use the `-h` option for instructions on running with custom limit and time interval.
